@@ -181,7 +181,7 @@ presentation.each do |presentation, data|  #dolas ve etiketle
       sh "mogrify -resize 240 #{data[:thumbnail]}"
       png_optim(data[:thumbnail])
     end
- #tanımlı optimizasyon işlenmesi
+ #öntanımlı optimizasyon işlenmesi
     task :optim do
       chdir presentation do
         optim
