@@ -1,16 +1,15 @@
+require 'pathname'     #dosya yoluyla metod calıştırılır
+require 'pythonconfig' #modül import edilmesi
+require 'yaml'         #işlenecek verilerin dosyası
+    
+CONFIG = Config.fetch('presentation', {})  #dosyayı config'e atar
 
-require 'pathname'
-require 'pythonconfig'
-require 'yaml'
-
-CONFIG = Config.fetch('presentation', {})
-
-PRESENTATION_DIR = CONFIG.fetch('directory', 'p')
+PRESENTATION_DIR = CONFIG.fetch('directory', 'p')#key olarak dizin ,value ise p olarak alınır
 DEFAULT_CONFFILE = CONFIG.fetch('conffile', '_templates/presentation.cfg')
-INDEX_FILE = File.join(PRESENTATION_DIR, 'index.html')
-IMAGE_GEOMETRY = [ 733, 550 ]
-DEPEND_KEYS    = %w(source css js)
-DEPEND_ALWAYS  = %w(media)
+INDEX_FILE = File.join(PRESENTATION_DIR, 'index.html')#dizinin yolu atanır
+IMAGE_GEOMETRY = [ 733, 550 ] #resim boyutu
+DEPEND_KEYS    = %w(source css js) #bağlı anahtar
+DEPEND_ALWAYS  = %w(media) #sürekli bağımlılık
 TASKS = {
     :index   => 'sunumları indeksle',
     :build   => 'sunumları oluştur',
@@ -24,7 +23,7 @@ TASKS = {
 presentation   = {}
 tag            = {}
 
-class File
+class File #sınıf yapısıyla dosya yolu alma
   @@absolute_path_here = Pathname.new(Pathname.pwd)
   def self.to_herepath(path)
     Pathname.new(File.expand_path(path)).relative_path_from(@@absolute_path_here).to_s
@@ -35,42 +34,42 @@ class File
       [path]
   end
 end
-
+ #dosya youyla slayt yorumlama 
 def png_comment(file, string)
   require 'chunky_png'
   require 'oily_png'
-
+ #acılan dosyaya kaydedildi notu döner
   image = ChunkyPNG::Image.from_file(file)
   image.metadata['Comment'] = 'raked'
   image.save(file)
 end
-
+ #slayt boyutu optimize edilir
 def png_optim(file, threshold=40000)
   return if File.new(file).size < threshold
-  sh "pngnq -f -e .png-nq #{file}"
+  sh "pngnq -f -e .png-nq #{file}" #yorum satırında calıştırılacak komut
   out = "#{file}-nq"
-  if File.exist?(out)
+  if File.exist?(out) #dosya kontrol edilir,file ile değiştirilir,out dosyası silinir
     $?.success? ? File.rename(out, file) : File.delete(out)
   end
-  png_comment(file, 'raked')
+  png_comment(file, 'raked') #işlendi notu düş
 end
-
+ #dosya boyutunun optimize edilir
 def jpg_optim(file)
   sh "jpegoptim -q -m80 #{file}"
   sh "mogrify -comment 'raked' #{file}"
 end
-
+ #jpg png dosyalarını listele
 def optim
   pngs, jpgs = FileList["**/*.png"], FileList["**/*.jpg", "**/*.jpeg"]
-
+ #alınan dosyaları istenen uzantılarda çıkart
   [pngs, jpgs].each do |a|
     a.reject! { |f| %x{identify -format '%c' #{f}} =~ /[Rr]aked/ }
   end
-
+ #slaytların boyutunu dezenleme
   (pngs + jpgs).each do |f|
-    w, h = %x{identify -format '%[fx:w] %[fx:h]' #{f}}.split.map { |e| e.to_i }
+    w, h = %x{identify -format '%[fx:w] %[fx:h]' #{f}}.split.map { |e| e.to_i } #boyutlar belirlenir
     size, i = [w, h].each_with_index.max
-    if size > IMAGE_GEOMETRY[i]
+    if size > IMAGE_GEOMETRY[i] #istenilen boyuta cevrilir
       arg = (i > 0 ? 'x' : '') + IMAGE_GEOMETRY[i].to_s
       sh "mogrify -resize #{arg} #{f}"
     end
@@ -88,27 +87,27 @@ def optim
 end
 
 default_conffile = File.expand_path(DEFAULT_CONFFILE)
-
+ #dosya yollarını al
 FileList[File.join(PRESENTATION_DIR, "[^_.]*")].each do |dir|
   next unless File.directory?(dir)
-  chdir dir do
+  chdir dir do #dosya uzantılarının ayarlaması
     name = File.basename(dir)
     conffile = File.exists?('presentation.cfg') ? 'presentation.cfg' : default_conffile
     config = File.open(conffile, "r") do |f|
       PythonConfig::ConfigParser.new(f)
     end
-
+ #yoksa hata yaz ve cik
     landslide = config['landslide']
     if ! landslide
       $stderr.puts "#{dir}: 'landslide' bölümü tanımlanmamış"
       exit 1
     end
-
+ 
     if landslide['destination']
       $stderr.puts "#{dir}: 'destination' ayarı kullanılmış; hedef dosya belirtilmeyin"
       exit 1
     end
-
+ #dosya varlığının sorgulanması
     if File.exists?('index.md')
       base = 'index'
       ispublic = true
@@ -121,9 +120,9 @@ FileList[File.join(PRESENTATION_DIR, "[^_.]*")].each do |dir|
     end
 
     basename = base + '.html'
-    thumbnail = File.to_herepath(base + '.png')
+    thumbnail = File.to_herepath(base + '.png') #png ile başlangıç yolu belirlenir
     target = File.to_herepath(basename)
-
+ #dosyalar bağımlı hale getitilir
     deps = []
     (DEPEND_ALWAYS + landslide.values_at(*DEPEND_KEYS)).compact.each do |v|
       deps += v.split.select { |p| File.exists?(p) }.map { |p| File.to_filelist(p) }.flatten
@@ -132,7 +131,7 @@ FileList[File.join(PRESENTATION_DIR, "[^_.]*")].each do |dir|
     deps.map! { |e| File.to_herepath(e) }
     deps.delete(target)
     deps.delete(thumbnail)
-
+ #etiketleme
     tags = []
 
    presentation[dir] = {
@@ -148,14 +147,14 @@ FileList[File.join(PRESENTATION_DIR, "[^_.]*")].each do |dir|
     }
   end
 end
-
+ #bos olan etiketlerin doldurulması
 presentation.each do |k, v|
   v[:tags].each do |t|
     tag[t] ||= []
     tag[t] << k
   end
 end
-
+ #görev haritalarının olusturulması
 tasktab = Hash[*TASKS.map { |k, v| [k, { :desc => v, :tasks => [] }] }.flatten]
 
 presentation.each do |presentation, data|
@@ -169,7 +168,7 @@ presentation.each do |presentation, data|
         end
       end
     end
-
+ #resimlerin işlenmesi
     file data[:thumbnail] => data[:target] do
       next unless data[:public]
       sh "cutycapt " +
@@ -182,17 +181,17 @@ presentation.each do |presentation, data|
       sh "mogrify -resize 240 #{data[:thumbnail]}"
       png_optim(data[:thumbnail])
     end
-
+ #tanımlı optimizasyon işlenmesi
     task :optim do
       chdir presentation do
         optim
       end
     end
-
+ #rake file daki index belili bağımlılıkla calıştırılır
     task :index => data[:thumbnail]
-
+ #optim olrak belirtilen bağımlılıklar calıştırılır
     task :build => [:optim, data[:target], :index]
-
+ #dosya olusturulması
     task :view do
       if File.exists?(data[:target])
         sh "touch #{data[:directory]}; #{browse_command data[:target]}"
@@ -200,14 +199,14 @@ presentation.each do |presentation, data|
         $stderr.puts "#{data[:target]} bulunamadı; önce inşa edin"
       end
     end
-
+ #built ve view calıştırılır
     task :run => [:build, :view]
-
+ #görevi biten bilgiler temizlenir
     task :clean do
       rm_f data[:target]
       rm_f data[:thumbnail]
     end
-
+ #öntanımlı olarak inşa işlemi gercekleşir
     task :default => :build
   end
 
@@ -217,7 +216,7 @@ presentation.each do |presentation, data|
     tasktab[name][:tasks] << t
   end
 end
-
+ #isim uzayının elemenlarna yeni görev atanır
 namespace :p do
   tasktab.each do |name, info|
     desc info[:desc]
@@ -226,7 +225,7 @@ namespace :p do
   end
 
   task :build do
-    index = YAML.load_file(INDEX_FILE) || {}
+    index = YAML.load_file(INDEX_FILE) || {} #yaml dosyasını indexe ata
     presentations = presentation.values.select { |v| v[:public] }.map { |v| v[:directory] }.sort
     unless index and presentations == index['presentations']
       index['presentations'] = presentations
@@ -236,9 +235,9 @@ namespace :p do
       end
     end
   end
-
+ #acıklama eklenmesi
   desc "sunum menüsü"
-  task :menu do
+  task :menu do #sunum adi ve oluşturma tarihi belirlenip gösterilmesi
     lookup = Hash[
       *presentation.sort_by do |k, v|
         File.mtime(v[:directory])
@@ -247,6 +246,7 @@ namespace :p do
       .map { |k, v| [v[:name], k] }
       .flatten
     ]
+ #menüde işlemin renginin veözelliklerinin ayarlanması
     name = choose do |menu|
       menu.default = "1"
       menu.prompt = color(
@@ -255,11 +255,11 @@ namespace :p do
       menu.choices(*lookup.keys)
     end
     directory = lookup[name]
-    Rake::Task["#{directory}:run"].invoke
+    Rake::Task["#{directory}:run"].invoke #rake verilen dizinde calıştırılır
   end
   task :m => :menu
 end
-
+ #menüde p ile presantationdan gelen veriyle calıştır
 desc "sunum menüsü"
-task :p => ["p:menu"]
+task :p => ["p:menu"] 
 task :presentation => :p
