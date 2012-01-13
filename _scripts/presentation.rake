@@ -157,7 +157,7 @@ end
  #görev haritalarının olusturulması
 tasktab = Hash[*TASKS.map { |k, v| [k, { :desc => v, :tasks => [] }] }.flatten]
 
-presentation.each do |presentation, data|
+presentation.each do |presentation, data|  #dolas ve etiketle
   ns = namespace presentation do
     file data[:target] => data[:deps] do |t|
       chdir presentation do
