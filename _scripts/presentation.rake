@@ -246,7 +246,7 @@ namespace :p do
       .map { |k, v| [v[:name], k] }
       .flatten
     ]
- #menüde işlemin renginin veözelliklerinin ayarlanması
+ #menüde işlemin renginin ve özelliklerinin ayarlanması
     name = choose do |menu|
       menu.default = "1"
       menu.prompt = color(
@@ -255,7 +255,7 @@ namespace :p do
       menu.choices(*lookup.keys)
     end
     directory = lookup[name]
-    Rake::Task["#{directory}:run"].invoke #rake verilen dizinde calıştırılır
+    Rake::Task["#{directory}:run"].invoke #rake verilen dizin ile  calıştırılır
   end
   task :m => :menu
 end
