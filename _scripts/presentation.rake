@@ -239,10 +239,10 @@ namespace :p do
   desc "sunum menüsü"
   task :menu do #sunum adi ve oluşturma tarihi belirlenip gösterilmesi
     lookup = Hash[
-      *presentation.sort_by do |k, v|
+      *presentation.sort_by do |k, v| 
         File.mtime(v[:directory])
       end
-      .reverse
+      .reverse   #map ters cevriliyor
       .map { |k, v| [v[:name], k] }
       .flatten
     ]
